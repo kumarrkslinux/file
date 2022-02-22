@@ -1,0 +1,185 @@
+
+[root@host1 ~]# ethtool -S eth10 | grep -i error
+rx_errors: 10398396
+tx_errors: 0
+rx_crc_errors: 5170911 ---> large number of cyclical error.
+rx_alignment_symbol_errors: 151325
+rx_in_range_errors: 2
+rx_out_range_errors: 0
+rx_address_match_errors: 9124924
+[root@host1 ~]#
+
+This large number of cyclical error indicate that the NIC card for that port needs to be replaced. In this case that port belong to a 10 Ge Dual
+
+========================================================================================================================================
+The error fields are not well documented so here is some additional information to help understand the output.
+
+* Frame Errors
+The "frame" field counts the number of received misaligned Ethernet frames.
+Frame errors mean CRC failures on receipt of a frame.
+The frame field counts only misaligned frames, it means frames with a length not divisible by 8. Because of that length is not a valid frame and it is simply discarded.
+The root cause of this could be a bad cable, or a bad interface on either the machine or the switch.
+Suggested trouble shooting would be replacing the cables, if the problem persists then move to another port on the switch.
+
+* Errors
+The "errors" field counts CRC errors, too-short frames and too-long frames.
+This can result from faulty network cables, faulty hardware (e.g., NICs, switch ports), CRC errors, or a speed or duplex mismatch between computer and switch, which would also manifest itself in a high number of collisions.
+
+* Dropped
+The "dropped" field counts things like unintended VLAN tags or receiving IPv6 frames when the interface is not configured for IPv6.
+Packet Dropped seen from ifconfig could be due to many reasons
+Some possible things to check would be cable/hardware/duplex issues
+
+Below are some general reasons for "dropped" packets:
+
+- NIC ring buffers getting full and unable to cope-up with incoming bursts of traffic
+- CPU receiving NIC interrupts is very busy and unable to process
+- some cable/hardware/duplex issues
+- some bug in NIC driver
+
+* Overruns
+The overruns field counts that times when there is fifo overruns, caused by the rate at which the buffer gets full and the kernel isn't able to empty it.
+
+
+
+netstat -s |grep -i retr
+ethtool -S eth0 |grep error
+netstate -o - keeplive
+
+sysctl -a|egrep 'tcp_[rw]mem|[rw]mem_max' 
+
+
+sar -q -s 19:00:00 -e 21:30:00 -f /var/log/sa/sa28
+sar -r -s 09:00:00 -e 11:00:00 -f /var/log/sa/sa27/sbin/ifconfig eno1 mtu 9000 up  
+sar -d -s 09:00:00 -e 11:00:00 -f /var/log/sa/sa27
+sar -n EDEV -s 17:00:00 -e 18:30:00  -f /var/log/sa/sa28
+sar -n NFS -s 16:00:00 -e 20:30:00  -f /var/log/sa/sa28
+sar -n NFS 2 10
+sar -B -f /var/log/sa/sa28 -  paging status 
+sar -d -f /var/log/sa/sa28 -  IO
+sar -r -f /var/log/sa/sa22 - RAM
+sar -q 
+sar -r -f /var/log/sa/sa22 -s 10:00:01 -e 11:50:01
+netstat -i
+netstat -tupl
+vmstat -S m 2
+
+
+NIC issue:
+grep Link /var/log/messages 
+ 
+grep -i abort /var/log/messages
+grep ' soft lockup ' messages-20200705 
+zcat /var/log/messages-20200*.gz |grep 'Call Trace'
+zcat /var/log/messages-20200*.gz |grep Abort
+grep 'Out of memory' messages-20200719
+grep -i -r 'out of memory' /var/log/
+zcat messages-20210*.gz |grep file-max
+ps aux | grep -i defunct
+ps auxH | awk '$8 ~ /^D/{print}'
+
+ iostat -x 1 
+
+HO - iperf3 -i 5 -t 60 -c revapp-as-3p
+
+As - iperf3 -i 5 -s
+
+/sbin/ifconfig eno1 mtu 9000 up  
+
+yum remove trousers --assumeno
+dd bs=1M count=1024 if=/dev/zero | ssh root@revapp-ho-3p "dd of=/dev/null"
+fallocate -l 1G test.txt
+
+stress --cpu 4 --io 3 --vm 2 --vm-bytes 256M --timeout 20s 
+
+Write test 
+dd if=/dev/zero of=/tmp/test1.img bs=1G count=1 oflag=dsync
+
+Read test 
+hdparm -Tt /dev/sda
+
+[root@host1 ~]# ioping -RL /data
+--- /data (nfs 172.24.234.60:/data) ioping statistics ---
+811 requests completed in 2.94 s, 202.8 MiB read, 275 iops, 69.0 MiB/s     =================== 69.0MB
+generated 812 requests in 3.00 s, 203 MiB, 270 iops, 67.6 MiB/s
+min/avg/max/mdev = 1.78 ms / 3.63 ms / 45.7 ms / 3.24 ms (edited) 
+white_check_mark
+eyes
+raised_hands
+
+
+Memeory test : 
+memtest86
+
+
+
+
+
+[root@host1 ~]# cat /proc/net/bonding/bond0  |grep Speed
+Speed: 10000 Mbps
+Speed: 10000 Mbps
+
+Read performance:
+  
+[root@host1 ~]# ioping -RL /data
+--- /data (nfs 172.24.234.60:/data) ioping statistics ---
+959 requests completed in 2.94 s, 239.8 MiB read, 326 iops, 81.6 MiB/s =================== 81.6
+generated 960 requests in 3.00 s, 240 MiB, 319 iops, 80.0 MiB/s
+min/avg/max/mdev = 1.77 ms / 3.06 ms / 46.4 ms / 2.75 ms (edited) 
+
+[root@host1 ~]#  cat /proc/net/bonding/bond0  |grep Speed
+Speed: 10000 Mbps
+Speed: 10000 Mbps
+
+[root@host1 ~]# ioping -RL /data
+--- /data (nfs 172.24.234.60:/data) ioping statistics ---
+661 requests completed in 2.97 s, 165.2 MiB read, 222 iops, 55.7 MiB/s =================== 55.7
+generated 662 requests in 3.00 s, 165.5 MiB, 220 iops, 55.1 MiB/s
+min/avg/max/mdev = 2.01 ms / 4.49 ms / 50.2 ms / 5.44 ms
+
+[root@incoapp-wc-a3s ~]# cat /proc/net/bonding/bond0  |grep Speed
+Speed: 10000 Mbps
+Speed: 10000 Mbps
+
+lsof /mnt/rdu
+fuser -cu /mnt/rdu
+umount.vxfs -o mntunlock=VCS /app/rdu-db
+
+
+Transfer file between 2 files its taking too much time 
+
+Interface is taking input errors, please schedule to have DCM clean/ re-seat. If new SFP is needed for the switch we can be looped in as we are a 24/7 team. DCM should have spare SFP's for the switch onsite
+
+Switch#sh int et42 | i err
+43299377 input errors, 36739745 CRC, 0 alignment, 6306164 symbol, 0 input discards
+0 output errors, 0 collisions
+0 late collision, 0 deferred, 0 output discards
+Switch##Switch##sh int et42 | i err
+43299405 input errors, 36739764 CRC, 0 alignment, 6306172 symbol, 0 input discards
+0 output errors, 0 collisions
+0 late collision, 0 deferred, 0 output discards
+Switch##sh int et42 | i err
+43299813 input errors, 36740096 CRC, 0 alignment, 6306239 symbol, 0 input discards
+0 output errors, 0 collisions
+0 late collision, 0 deferred, 0 output discards
+
+
+
+CIFS share troubleshoot
+
+Kindly share the output of following command
+
+   # ping -c5 servername
+
+   # telnet <smb-server-ip> 445
+ 
+   # telnet <smb-server-ip> 139
+
+   # smbclient -L //severname/CHQ-Accounting -U <username>
+
+   # smbclient //severname/CHQ-Accounting -U <username>
+
+   # mount.cifs -o username=<username>,password=<password> //severname/fund /newshare -vvvv
+
+
+
